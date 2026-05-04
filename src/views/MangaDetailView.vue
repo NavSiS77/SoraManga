@@ -19,6 +19,7 @@
 import { computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMangaStore } from '../stores/manga'
+import { MangaApi } from '../services/mangaApi'
 
 export default {
   name: 'MangaDetailView',
@@ -30,6 +31,11 @@ export default {
       if (!mangaStore.mangaList.length) {
         mangaStore.fetchCatalog()
       }
+      MangaApi.getById(route.params.id).then((item) => {
+        if (item && !mangaStore.mangaList.find((manga) => manga.id === item.id)) {
+          mangaStore.mangaList = [...mangaStore.mangaList, item]
+        }
+      })
     })
 
     const manga = computed(() =>
@@ -49,14 +55,17 @@ export default {
   gap: 10px;
 }
 li {
-  background: #111827;
-  border: 1px solid #1f2937;
+  background: #fff8fc;
+  border: 1px solid #efbfd3;
   border-radius: 10px;
   padding: 10px 12px;
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 a {
-  color: #60a5fa;
+  color: #a73667;
 }
 </style>

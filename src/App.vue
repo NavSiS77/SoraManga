@@ -7,9 +7,9 @@
           <p class="tagline">Manga reader platform</p>
         </div>
         <nav class="navbar">
-          <RouterLink to="/">Главная</RouterLink>
-          <RouterLink to="/">Каталог</RouterLink>
-          <RouterLink to="/">Вход / Регистрация</RouterLink>
+          <RouterLink v-if="!authStore.isAuthenticated" to="/auth">Вход / Регистрация</RouterLink>
+          <RouterLink v-else to="/profile">Профиль</RouterLink>
+          <RouterLink v-if="authStore.isAdmin" to="/admin">Админка</RouterLink>
         </nav>
       </div>
     </header>
@@ -28,19 +28,40 @@
 </template>
 
 <script>
+import { useAuthStore } from './stores/auth'
+
 export default {
-  name: 'App'
+  name: 'App',
+  setup() {
+    const authStore = useAuthStore()
+    return { authStore }
+  }
 }
 </script>
 
 <style>
+:root {
+  --container-max-width: 1100px;
+  --container-padding: clamp(12px, 2.2vw, 20px);
+  --radius-md: 10px;
+  --focus-ring: 0 0 0 3px rgba(236, 72, 153, 0.25);
+}
+
 * {
   box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
   font-family: 'Segoe UI', Arial, 'Noto Sans', sans-serif;
+  line-height: 1.45;
   letter-spacing: normal;
   word-spacing: normal;
   color: #4e2a3a;
@@ -48,11 +69,43 @@ body {
     radial-gradient(circle at 10% 25%, #ffd1dc 0, #ffd1dc 14%, transparent 15%),
     radial-gradient(circle at 90% 85%, #ffc6da 0, #ffc6da 10%, transparent 11%),
     linear-gradient(160deg, #fff6fb 0%, #ffeef8 48%, #ffe2f0 100%);
+  overflow-x: hidden;
+}
+
+img,
+video,
+canvas,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a,
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+.navbar a {
+  min-height: 36px;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 h1, h2, h3, h4, h5, h6, p, span, a, button, input {
   letter-spacing: normal;
   word-spacing: normal;
+  overflow-wrap: anywhere;
 }
 
 #app,
@@ -68,13 +121,24 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
 .header {
   border-bottom: 1px solid #f1bfd2;
   background: rgba(255, 255, 255, 0.86);
+  position: sticky;
+  top: 0;
+  z-index: 30;
+}
+
+@supports ((-webkit-backdrop-filter: blur(8px)) or (backdrop-filter: blur(8px))) {
+  .header {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+  }
 }
 
 .header-inner,
 .footer-inner {
-  max-width: 1100px;
+  max-width: var(--container-max-width);
   margin: 0 auto;
-  padding: 0 16px;
+  padding: 0 max(var(--container-padding), env(safe-area-inset-left));
+  padding-right: max(var(--container-padding), env(safe-area-inset-right));
 }
 
 .header-inner {
@@ -127,6 +191,7 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
   padding: 5px 9px;
   border-radius: 999px;
   border: 1px solid transparent;
+  white-space: nowrap;
 }
 
 .navbar a.router-link-exact-active {
@@ -135,10 +200,15 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
 }
 
 .page {
-  max-width: 1100px;
+  max-width: var(--container-max-width);
   width: 100%;
   margin: 0 auto;
-  padding: 12px 14px 18px;
+  padding: 12px max(var(--container-padding), env(safe-area-inset-left)) calc(18px + env(safe-area-inset-bottom));
+  padding-right: max(var(--container-padding), env(safe-area-inset-right));
+}
+
+.page > * {
+  min-width: 0;
 }
 
 .footer {
@@ -163,6 +233,9 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
     flex-direction: column;
     align-items: flex-start;
   }
+  .navbar {
+    width: 100%;
+  }
   .brand-group {
     align-items: flex-start;
     flex-direction: column;
@@ -174,6 +247,41 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
     gap: 4px;
     padding-top: 8px;
     padding-bottom: 8px;
+  }
+}
+
+@media (max-width: 400px) {
+  .logo {
+    font-size: 20px;
+  }
+  .navbar a {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --container-max-width: 1240px;
+  }
+}
+
+@media (min-width: 1600px) {
+  :root {
+    --container-max-width: 1360px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 </style>

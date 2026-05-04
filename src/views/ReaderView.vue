@@ -19,6 +19,7 @@ import { computed, onMounted, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMangaStore } from '../stores/manga'
 import { useReaderStore } from '../stores/reader'
+import { MangaApi } from '../services/mangaApi'
 
 export default {
   name: 'ReaderView',
@@ -47,6 +48,11 @@ export default {
       if (!mangaStore.mangaList.length) {
         mangaStore.fetchCatalog()
       }
+      MangaApi.getById(route.params.mangaId).then((item) => {
+        if (item && !mangaStore.mangaList.find((mangaItem) => mangaItem.id === item.id)) {
+          mangaStore.mangaList = [...mangaStore.mangaList, item]
+        }
+      })
       readerStore.loadChapter(Number(route.params.chapterId))
     })
 
@@ -62,6 +68,8 @@ export default {
 <style scoped>
 img {
   width: min(100%, 700px);
+  max-width: 100%;
+  height: auto;
   display: block;
   margin: 14px 0;
   border-radius: 8px;
@@ -70,6 +78,7 @@ img {
   display: flex;
   gap: 10px;
   align-items: center;
+  flex-wrap: wrap;
 }
 button {
   background: #1d4ed8;
@@ -78,8 +87,20 @@ button {
   border-radius: 8px;
   padding: 8px 12px;
   cursor: pointer;
+  min-height: 40px;
 }
 a {
   color: #60a5fa;
+  overflow-wrap: anywhere;
+}
+@media (max-width: 480px) {
+  .controls {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+  button,
+  a {
+    text-align: center;
+  }
 }
 </style>

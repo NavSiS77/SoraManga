@@ -1,13 +1,7 @@
 <template>
   <section class="home">
     <div class="top-tools">
-      <div class="tabs">
-        <button class="tab active">Каталог</button>
-        <button class="tab">Топы</button>
-        <button class="tab">Форум</button>
-        <button class="tab">Жанры</button>
-      </div>
-      <input class="search" type="text" placeholder="Поиск тайтлов..." >
+      <input class="search" :value="mangaStore.searchQuery" type="text" placeholder="Поиск тайтлов..." @input="onSearch">
     </div>
 
     <article class="promo">
@@ -21,110 +15,132 @@
     <section class="feed-block">
       <header class="block-head">
         <h2>Сейчас читают</h2>
-        <a href="#">Смотреть все</a>
+        <RouterLink to="/profile">Смотреть избранное</RouterLink>
       </header>
-      <div class="row-cards">
-        <article v-for="card in nowReading" :key="card.id" class="cover-card">
-          <div class="cover">{{ card.emoji }}</div>
-          <h4>{{ card.title }}</h4>
-          <p>{{ card.genre }}</p>
-        </article>
+      <div class="carousel-wrap">
+        <button class="carousel-arrow left" type="button" @click="scrollNowReading('left')" aria-label="Прокрутить влево">
+          <span>‹</span>
+        </button>
+        <Transition name="cards-fade" mode="out-in">
+          <div class="row-cards" :key="nowReadingPage">
+            <article v-for="card in visibleNowReading" :key="card.id" class="cover-card">
+              <RouterLink :to="`/manga/${card.id}`" class="cover-link">
+                <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async">
+              </RouterLink>
+              <h4>{{ card.title }}</h4>
+              <p>{{ getGenreNames(card.genres) }}</p>
+              <p class="meta">
+                <span class="status" :class="card.status === 'COMPLETED' ? 'completed' : 'ongoing'">
+                  {{ card.status === 'COMPLETED' ? 'Завершен' : 'Онгоинг' }}
+                </span>
+                <span>{{ card.rating?.toFixed(1) || '0.0' }} / 10</span>
+              </p>
+              <button class="fav-btn" @click="mangaStore.toggleFavorite(card.id)">
+                {{ mangaStore.isFavorite(card.id) ? 'Убрать из избранного' : 'В избранное' }}
+              </button>
+            </article>
+          </div>
+        </Transition>
+        <button class="carousel-arrow right" type="button" @click="scrollNowReading('right')" aria-label="Прокрутить вправо">
+          <span>›</span>
+        </button>
       </div>
-    </section>
-
-    <section class="triple-grid">
-      <article class="column-card">
-        <h3>Новинки</h3>
-        <ul>
-          <li v-for="item in updates" :key="item.id">
-            <span class="icon">{{ item.emoji }}</span>
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.chapter }}</p>
-            </div>
-          </li>
-        </ul>
-      </article>
-      <article class="column-card">
-        <h3>Набирают популярность</h3>
-        <ul>
-          <li v-for="item in trending" :key="item.id">
-            <span class="icon">{{ item.emoji }}</span>
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.chapter }}</p>
-            </div>
-          </li>
-        </ul>
-      </article>
-      <article class="column-card">
-        <h3>Популярное</h3>
-        <ul>
-          <li v-for="item in popular" :key="item.id">
-            <span class="icon">{{ item.emoji }}</span>
-            <div>
-              <strong>{{ item.title }}</strong>
-              <p>{{ item.chapter }}</p>
-            </div>
-          </li>
-        </ul>
-      </article>
     </section>
 
     <section class="feed-block">
       <header class="block-head">
-        <h2>Горячие новинки</h2>
-        <a href="#">Обновить</a>
+        <h2>Каталог</h2>
       </header>
-      <div class="row-cards">
-        <article v-for="card in hotList" :key="card.id" class="cover-card">
-          <div class="cover">{{ card.emoji }}</div>
+      <div class="catalog-grid">
+        <article v-for="card in catalogPreview" :key="`catalog-${card.id}`" class="catalog-card">
+          <RouterLink :to="`/manga/${card.id}`" class="cover-link">
+            <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async">
+          </RouterLink>
           <h4>{{ card.title }}</h4>
-          <p>{{ card.genre }}</p>
+          <p>{{ getGenreNames(card.genres) }}</p>
         </article>
       </div>
+      <div class="catalog-more-wrap">
+        <RouterLink class="catalog-more-btn" to="/catalog">Смотреть больше</RouterLink>
+      </div>
     </section>
+
+    <section class="feed-block">
+      <header class="block-head">
+        <h2>Топ-30 манги по рейтингу</h2>
+      </header>
+      <ol class="top-list">
+        <li v-for="item in visibleTopRated" :key="item.id" class="top-item">
+          <span class="place">#{{ item.rank }}</span>
+          <RouterLink :to="`/manga/${item.id}`">{{ item.title }}</RouterLink>
+          <span class="score">{{ item.rating.toFixed(1) }}</span>
+        </li>
+      </ol>
+      <button class="expand-btn" type="button" @click="isTopExpanded = !isTopExpanded">
+        {{ isTopExpanded ? 'Свернуть список' : 'Показать все' }}
+      </button>
+    </section>
+
+    <p v-if="!mangaStore.mangaList.length">По вашему запросу ничего не найдено.</p>
   </section>
 </template>
 
 <script>
+import { computed, onMounted, ref } from 'vue'
+import { useMangaStore } from '../stores/manga'
+
 export default {
   name: 'CatalogView',
-  data() {
+  setup() {
+    const mangaStore = useMangaStore()
+    const isTopExpanded = ref(false)
+    const nowReading = computed(() => mangaStore.sortedManga.slice(0, 15))
+    const catalogPreview = computed(() => mangaStore.sortedManga.slice(0, 10))
+    const visibleTopRated = computed(() => {
+      return isTopExpanded.value
+        ? mangaStore.topRated30
+        : mangaStore.topRated30.slice(0, 5)
+    })
+
+    const nowReadingPage = ref(0)
+    const pageSize = 5
+    const totalPages = computed(() => Math.max(1, Math.ceil(nowReading.value.length / pageSize)))
+    const visibleNowReading = computed(() => {
+      const start = nowReadingPage.value * pageSize
+      return nowReading.value.slice(start, start + pageSize)
+    })
+    const scrollNowReading = (direction) => {
+      if (direction === 'left') {
+        nowReadingPage.value = (nowReadingPage.value - 1 + totalPages.value) % totalPages.value
+      } else {
+        nowReadingPage.value = (nowReadingPage.value + 1) % totalPages.value
+      }
+    }
+    const onSearch = (event) => {
+      mangaStore.search(event.target.value)
+    }
+    const getGenreNames = (genreIds) => {
+      return mangaStore.genres
+        .filter((genre) => genreIds.includes(genre.id))
+        .map((genre) => genre.name)
+        .join(', ')
+    }
+
+    onMounted(async () => {
+      await mangaStore.fetchGenres()
+      await mangaStore.fetchCatalog()
+    })
+
     return {
-      nowReading: [
-        { id: 1, emoji: '⚔️', title: 'Клинок тумана', genre: 'Экшен' },
-        { id: 2, emoji: '🌸', title: 'Лепестки неба', genre: 'Романтика' },
-        { id: 3, emoji: '🔥', title: 'Империя огня', genre: 'Фэнтези' },
-        { id: 4, emoji: '🦊', title: 'Лисий контракт', genre: 'Мистика' },
-        { id: 5, emoji: '🌙', title: 'Moon Diary', genre: 'Драма' },
-        { id: 6, emoji: '🎴', title: 'Хроники хару', genre: 'Школа' },
-        { id: 7, emoji: '🗻', title: 'Путь ветра', genre: 'Приключения' },
-        { id: 8, emoji: '🛡️', title: 'Стальной ранг', genre: 'Боевик' }
-      ],
-      hotList: [
-        { id: 11, emoji: '🐉', title: 'Драконья клятва', genre: 'Фэнтези' },
-        { id: 12, emoji: '🎀', title: 'Розовый код', genre: 'Комедия' },
-        { id: 13, emoji: '🌌', title: 'Небесный город', genre: 'Фантастика' },
-        { id: 14, emoji: '🕯️', title: 'Шепот храма', genre: 'Мистика' },
-        { id: 15, emoji: '💠', title: 'Ледяной орден', genre: 'Экшен' },
-        { id: 16, emoji: '🍡', title: 'Сладкий апрель', genre: 'Романтика' }
-      ],
-      updates: [
-        { id: 21, emoji: '🌸', title: 'Лепестки неба', chapter: 'Том 4, Глава 28' },
-        { id: 22, emoji: '⚔️', title: 'Клинок тумана', chapter: 'Том 8, Глава 66' },
-        { id: 23, emoji: '🌙', title: 'Moon Diary', chapter: 'Том 2, Глава 14' }
-      ],
-      trending: [
-        { id: 24, emoji: '🦊', title: 'Лисий контракт', chapter: 'Том 3, Глава 21' },
-        { id: 25, emoji: '🔥', title: 'Империя огня', chapter: 'Том 6, Глава 41' },
-        { id: 26, emoji: '🗻', title: 'Путь ветра', chapter: 'Том 1, Глава 8' }
-      ],
-      popular: [
-        { id: 27, emoji: '🎴', title: 'Хроники хару', chapter: 'Том 9, Глава 75' },
-        { id: 28, emoji: '🛡️', title: 'Стальной ранг', chapter: 'Том 7, Глава 54' },
-        { id: 29, emoji: '🐉', title: 'Драконья клятва', chapter: 'Том 5, Глава 33' }
-      ]
+      mangaStore,
+      isTopExpanded,
+      nowReadingPage,
+      visibleNowReading,
+      catalogPreview,
+      visibleTopRated,
+      scrollNowReading,
+      onSearch,
+      getGenreNames
     }
   }
 }
@@ -135,11 +151,12 @@ export default {
   display: grid;
   gap: 10px;
   font-family: 'Segoe UI', Arial, sans-serif;
+  min-width: 0;
 }
 
 .top-tools {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 8px;
   align-items: center;
 }
@@ -166,7 +183,9 @@ export default {
 }
 
 .search {
-  min-width: 240px;
+  min-width: 0;
+  width: 100%;
+  max-width: 240px;
   border-radius: 999px;
   border: 1px solid #efbfd3;
   background: #ffffffb8;
@@ -241,7 +260,7 @@ export default {
 
 .block-head h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: clamp(17px, 1.4vw, 20px);
   line-height: 1.2;
 }
 
@@ -250,117 +269,276 @@ export default {
   text-decoration: none;
 }
 
+.carousel-wrap {
+  position: relative;
+  margin-top: 8px;
+  min-width: 0;
+  overflow: hidden;
+  padding-inline: 38px;
+}
+
 .row-cards {
   margin-top: 8px;
+  width: 100%;
+  max-width: 100%;
   display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(135px, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  overflow: hidden;
+  padding-bottom: 2px;
 }
 
 .cover-card {
-  min-width: 135px;
+  min-width: 0;
+}
+
+.cover-link {
+  display: block;
 }
 
 .cover {
-  height: 168px;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  height: auto;
+  object-fit: cover;
   border-radius: 10px;
-  border: 1px solid #8f8f8f;
-  background: linear-gradient(150deg, #ffffff 15%, #ffc7dd 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 38px;
+  border: 1px solid #d5a2b7;
   box-shadow: 0 6px 10px rgba(90, 61, 73, 0.14);
 }
 
 .cover-card h4 {
   margin: 6px 0 2px;
-  font-size: 13px;
+  font-size: clamp(12px, 1.2vw, 14px);
   line-height: 1.2;
 }
 
 .cover-card p {
   margin: 0;
   color: #5f4a53;
-  font-size: 11px;
+  font-size: clamp(10px, 1.1vw, 12px);
   line-height: 1.2;
 }
-
-.triple-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+.meta {
+  margin-top: 4px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
 }
-
-.column-card {
-  border-radius: 14px;
-  border: 1px solid #efbfd3;
-  background: linear-gradient(150deg, #ffffffdd 0%, #ffe3f0a8 100%);
-  padding: 10px;
+.status {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: #fff;
 }
-
-.column-card h3 {
-  margin: 0 0 8px;
-  font-size: 16px;
-  line-height: 1.2;
+.status.ongoing {
+  background: #f97316;
 }
-
-.column-card ul {
+.status.completed {
+  background: #22c55e;
+}
+.top-list {
   list-style: none;
-  margin: 0;
+  margin: 10px 0 0;
   padding: 0;
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
-
-.column-card li {
-  display: flex;
-  gap: 8px;
+.catalog-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+}
+.catalog-card {
+  min-width: 0;
+}
+.top-item {
+  display: grid;
+  grid-template-columns: 54px 1fr 56px;
   align-items: center;
-  padding: 7px;
+  gap: 8px;
+  border: 1px solid #efbfd3;
   border-radius: 10px;
+  padding: 8px 10px;
   background: #fff8fc;
 }
-
-.icon {
-  width: 30px;
-  height: 30px;
+.expand-btn {
+  display: block;
+  margin-top: 10px;
+  margin-left: auto;
+  margin-right: auto;
+  border: 1px solid #efbfd3;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background: #ffffffb8;
+  color: #7f3652;
+  cursor: pointer;
+}
+.catalog-more-btn {
+  display: inline-block;
+  border: 1px solid #efbfd3;
   border-radius: 8px;
+  padding: 5px 9px;
+  background: #ffffffb8;
+  color: #7f3652;
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 12px;
+  line-height: 1.2;
+}
+.catalog-more-wrap {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+.place {
+  font-weight: 700;
+  color: #a73667;
+}
+.score {
+  text-align: right;
+  font-weight: 700;
+  color: #7f3652;
+}
+.fav-btn {
+  margin-top: 8px;
+  border: 1px solid #efbfd3;
+  background: #ffffffb8;
+  border-radius: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  color: #7f3652;
+}
+
+.carousel-arrow {
+  position: absolute;
+  top: 44%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid #f3b7d0;
+  background: linear-gradient(145deg, #ffffff, #ffe2ef);
+  color: #9d2a60;
+  cursor: pointer;
+  z-index: 2;
+  touch-action: manipulation;
+  box-shadow: 0 8px 16px rgba(167, 54, 103, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.22s ease, background 0.22s ease;
   display: grid;
   place-items: center;
-  background: #ffd8e9;
+  padding: 0;
+}
+.carousel-arrow span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+  font-size: 24px;
+  line-height: 1;
+  transform: translateY(-3.5px);
+}
+.carousel-arrow:hover {
+  background: linear-gradient(145deg, #fff7fb, #ffd5e7);
+  box-shadow: 0 10px 18px rgba(167, 54, 103, 0.28);
+}
+.carousel-arrow:active {
+  transform: translateY(-50%) scale(0.95);
+  box-shadow: 0 4px 10px rgba(167, 54, 103, 0.2);
+}
+.carousel-arrow.left {
+  left: 4px;
+}
+.carousel-arrow.right {
+  right: 4px;
 }
 
-.column-card strong {
-  display: block;
-  font-size: 13px;
-  line-height: 1.2;
+.cards-fade-enter-active,
+.cards-fade-leave-active {
+  transition: opacity 260ms ease, transform 260ms ease;
 }
-
-.column-card p {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.2;
-  color: #7a4d5f;
+.cards-fade-enter-from,
+.cards-fade-leave-to {
+  opacity: 0;
+  transform: translateX(10px);
 }
 
 @media (max-width: 760px) {
   .top-tools {
-    flex-direction: column;
-    align-items: stretch;
+    justify-content: stretch;
   }
   .search {
     min-width: 0;
+    max-width: none;
   }
   .promo {
     flex-direction: column;
     align-items: flex-start;
   }
-  .triple-grid {
+  .row-cards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding-inline: 2px;
+  }
+  .cover-card {
+    flex-basis: 62vw;
+    min-width: 62vw;
+  }
+  .carousel-arrow {
+    width: 34px;
+    height: 34px;
+    top: 43%;
+  }
+  .carousel-arrow.left {
+    left: 2px;
+  }
+  .carousel-arrow.right {
+    right: 2px;
+  }
+  .top-item {
+    grid-template-columns: 1fr auto;
+    grid-template-areas:
+      "title score"
+      "place place";
+    gap: 6px;
+  }
+  .top-item .place {
+    grid-area: place;
+  }
+  .top-item a {
+    grid-area: title;
+  }
+  .top-item .score {
+    grid-area: score;
+  }
+  .catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .block-head {
+    gap: 10px;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 420px) {
+  .carousel-wrap {
+    padding-inline: 0;
+  }
+  .row-cards {
     grid-template-columns: 1fr;
+  }
+  .catalog-grid {
+    grid-template-columns: 1fr;
+  }
+  .carousel-arrow {
+    display: none;
+  }
+}
+
+@media (min-width: 1200px) {
+  .row-cards {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 </style>
