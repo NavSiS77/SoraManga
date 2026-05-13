@@ -26,11 +26,11 @@
     <div class="catalog-grid">
       <article v-for="item in filteredCatalog" :key="item.id" class="catalog-card">
         <RouterLink :to="`/manga/${item.id}`" class="cover-link">
-          <img class="cover" :src="item.coverUrl" :alt="item.title" loading="lazy" decoding="async">
+          <img class="cover" :src="item.coverUrl" :alt="item.title" loading="lazy" decoding="async" referrerpolicy="no-referrer">
         </RouterLink>
         <h4>{{ item.title }}</h4>
         <p>{{ getGenreNames(item.genres) }}</p>
-        <p class="meta">{{ item.rating?.toFixed(1) || '0.0' }} / 10</p>
+        <p class="meta">{{ item.rating?.toFixed(2) || '0.00' }} / 10</p>
       </article>
     </div>
   </section>
@@ -40,6 +40,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useMangaStore } from '../stores/manga'
 import { MangaApi } from '../services/mangaApi'
+import { getShikimoriPopularityRank } from '../data/shikimoriScores'
 
 export default {
   name: 'AllCatalogView',
@@ -71,7 +72,14 @@ export default {
       if (sortBy.value === 'rating') {
         return genreFiltered.sort((a, b) => (b.rating || 0) - (a.rating || 0))
       }
-      return genreFiltered.sort((a, b) => b.views - a.views)
+      return genreFiltered.sort((a, b) => {
+        const ra = a.popularityRank ?? getShikimoriPopularityRank(a.id)
+        const rb = b.popularityRank ?? getShikimoriPopularityRank(b.id)
+        if (ra !== rb) {
+          return ra - rb
+        }
+        return (b.rating || 0) - (a.rating || 0)
+      })
     })
 
     const onGenreChange = (event) => {

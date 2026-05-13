@@ -25,7 +25,7 @@
           <div class="row-cards" :key="nowReadingPage">
             <article v-for="card in visibleNowReading" :key="card.id" class="cover-card">
               <RouterLink :to="`/manga/${card.id}`" class="cover-link">
-                <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async">
+                <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async" referrerpolicy="no-referrer">
               </RouterLink>
               <h4>{{ card.title }}</h4>
               <p>{{ getGenreNames(card.genres) }}</p>
@@ -33,7 +33,7 @@
                 <span class="status" :class="card.status === 'COMPLETED' ? 'completed' : 'ongoing'">
                   {{ card.status === 'COMPLETED' ? 'Завершен' : 'Онгоинг' }}
                 </span>
-                <span>{{ card.rating?.toFixed(1) || '0.0' }} / 10</span>
+                <span>{{ card.rating?.toFixed(2) || '0.00' }} / 10</span>
               </p>
               <button class="fav-btn" @click="mangaStore.toggleFavorite(card.id)">
                 {{ mangaStore.isFavorite(card.id) ? 'Убрать из избранного' : 'В избранное' }}
@@ -54,7 +54,7 @@
       <div class="catalog-grid">
         <article v-for="card in catalogPreview" :key="`catalog-${card.id}`" class="catalog-card">
           <RouterLink :to="`/manga/${card.id}`" class="cover-link">
-            <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async">
+            <img class="cover" :src="card.coverUrl" :alt="card.title" loading="lazy" decoding="async" referrerpolicy="no-referrer">
           </RouterLink>
           <h4>{{ card.title }}</h4>
           <p>{{ getGenreNames(card.genres) }}</p>
@@ -73,7 +73,7 @@
         <li v-for="item in visibleTopRated" :key="item.id" class="top-item">
           <span class="place">#{{ item.rank }}</span>
           <RouterLink :to="`/manga/${item.id}`">{{ item.title }}</RouterLink>
-          <span class="score">{{ item.rating.toFixed(1) }}</span>
+          <span class="score">{{ item.rating.toFixed(2) }}</span>
         </li>
       </ol>
       <button class="expand-btn" type="button" @click="isTopExpanded = !isTopExpanded">

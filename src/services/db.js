@@ -1,10 +1,18 @@
 import { genres, mangaList } from '../data/mockData'
+import { getShikimoriScore, getShikimoriPopularityRank } from '../data/shikimoriScores'
 
 const dbStorageKey = 'soramanga_db'
 const usersStorageKey = 'soramanga_users'
-const dbVersion = 7
+const dbVersion = 12
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
+
+const withShikimoriRatings = (list) =>
+  list.map((m) => ({
+    ...m,
+    rating: Math.round(getShikimoriScore(m.id, m.rating) * 100) / 100,
+    popularityRank: getShikimoriPopularityRank(m.id)
+  }))
 const rootScope = Function('return this')()
 const runSql = (sql, params = []) => {
   if (!rootScope.alasql) {
@@ -41,7 +49,7 @@ const loadDb = () => {
     version: dbVersion,
     name: 'manga.db',
     genres: clone(genres),
-    manga: clone(mangaList)
+    manga: withShikimoriRatings(clone(mangaList))
   }
   const saved = localStorage.getItem(dbStorageKey)
   if (saved) {
@@ -52,10 +60,18 @@ const loadDb = () => {
 
     const seedIds = new Set(initialDb.manga.map((item) => item.id))
     const oldManga = Array.isArray(parsed.manga) ? parsed.manga : []
+    const oldById = new Map(oldManga.map((item) => [item.id, item]))
+    const mergedSeedManga = initialDb.manga.map((seed) => {
+      const old = oldById.get(seed.id)
+      if (!old || !Array.isArray(old.chapters) || !old.chapters.length) {
+        return seed
+      }
+      return { ...seed, chapters: clone(old.chapters) }
+    })
     const customManga = oldManga.filter((item) => !seedIds.has(item.id))
     const migratedDb = {
       ...initialDb,
-      manga: [...initialDb.manga, ...customManga]
+      manga: [...mergedSeedManga, ...customManga]
     }
     localStorage.setItem(dbStorageKey, JSON.stringify(migratedDb))
     return migratedDb
@@ -108,7 +124,9 @@ export const DbService = {
       status: payload.status || 'ONGOING',
       views: 0,
       genres: payload.genres || [],
-      chapters: []
+      chapters: [],
+      rating: Math.round(getShikimoriScore(nextId, payload.rating ?? 8) * 100) / 100,
+      popularityRank: getShikimoriPopularityRank(nextId)
     }
     db.manga.push(newManga)
     saveDb(db)

@@ -1,28 +1,31 @@
-HEAD
-# soramanga
+# SoraManga
 
-## Project setup
-```
+Дипломный SPA-проект: платформа чтения манги на **Vue 3**, **Vue Router**, **Pinia**.
+
+## Установка
+
+```bash
 npm install
 ```
 
-### Compiles and hot-reloads for development
-```
+### Разработка (hot-reload)
+
+```bash
 npm run serve
 ```
 
-### Compiles and minifies for production
-```
+### Сборка для production
+
+```bash
 npm run build
 ```
 
-### Lints and fixes files
-```
+### Линтинг
+
+```bash
 npm run lint
 ```
 
-### Customize configuration
-See [Configuration Reference](https://cli.vuejs.org/config/).
+### Настройка Vue CLI
 
-# SoraManga
->>>>>>> 56c428a416c797c3919fcf9b66fc2a82d033c1e6
+См. [Configuration Reference](https://cli.vuejs.org/config/).

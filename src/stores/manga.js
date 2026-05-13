@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia'
 import { MangaApi } from '../services/mangaApi'
+import { getShikimoriPopularityRank } from '../data/shikimoriScores'
 
 const favoritesKey = 'favorite_ids'
+const plannedKey = 'planned_ids'
 
 export const useMangaStore = defineStore('MangaStore', {
   state: () => ({
@@ -11,7 +13,8 @@ export const useMangaStore = defineStore('MangaStore', {
     searchQuery: '',
     selectedGenre: null,
     sortBy: 'popular',
-    favorites: JSON.parse(localStorage.getItem(favoritesKey) || '[]')
+    favorites: JSON.parse(localStorage.getItem(favoritesKey) || '[]'),
+    planned: JSON.parse(localStorage.getItem(plannedKey) || '[]')
   }),
   getters: {
     topRated30(state) {
@@ -37,13 +40,23 @@ export const useMangaStore = defineStore('MangaStore', {
       if (state.sortBy === 'rating') {
         return sorted.sort((a, b) => (b.rating || 0) - (a.rating || 0))
       }
-      return sorted.sort((a, b) => b.views - a.views)
+      return sorted.sort((a, b) => {
+        const ra = a.popularityRank ?? getShikimoriPopularityRank(a.id)
+        const rb = b.popularityRank ?? getShikimoriPopularityRank(b.id)
+        if (ra !== rb) {
+          return ra - rb
+        }
+        return (b.rating || 0) - (a.rating || 0)
+      })
     },
     favoriteManga(state) {
       return state.mangaList.filter((item) => state.favorites.includes(item.id))
     },
     isFavorite: (state) => (mangaId) => {
       return state.favorites.includes(mangaId)
+    },
+    isPlanned: (state) => (mangaId) => {
+      return state.planned.includes(mangaId)
     }
   },
   actions: {
@@ -76,6 +89,14 @@ export const useMangaStore = defineStore('MangaStore', {
         this.favorites = [...this.favorites, mangaId]
       }
       localStorage.setItem(favoritesKey, JSON.stringify(this.favorites))
+    },
+    togglePlanned(mangaId) {
+      if (this.planned.includes(mangaId)) {
+        this.planned = this.planned.filter((id) => id !== mangaId)
+      } else {
+        this.planned = [...this.planned, mangaId]
+      }
+      localStorage.setItem(plannedKey, JSON.stringify(this.planned))
     }
   }
 })
