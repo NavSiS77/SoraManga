@@ -52,6 +52,9 @@ export const useMangaStore = defineStore('MangaStore', {
     favoriteManga(state) {
       return state.mangaList.filter((item) => state.favorites.includes(item.id))
     },
+    plannedManga(state) {
+      return state.mangaList.filter((item) => state.planned.includes(item.id))
+    },
     isFavorite: (state) => (mangaId) => {
       return state.favorites.includes(mangaId)
     },

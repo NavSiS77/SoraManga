@@ -1,3 +1,5 @@
+import { chainsawManChapters } from './chapterSeeds'
+
 export const genres = [
   { id: 1, name: 'Экшен' },
   { id: 2, name: 'Фэнтези' },
@@ -21,7 +23,7 @@ export const mangaList = [
   { id: 9, title: 'Атака титанов', coverUrl: 'https://ir.ozone.ru/s3/multimedia-1-i/7292067894.jpg', description: 'Человечество против титанов.', status: 'COMPLETED', views: 1400000, rating: 9.6, genres: [1, 6], chapters: [] },
   { id: 10, title: 'Охотник х Охотник', coverUrl: 'https://ir.ozone.ru/s3/multimedia-1-2/7086125342.jpg', description: 'Приключения Гона в мире охотников.', status: 'ONGOING', views: 970000, rating: 9.5, genres: [1, 2, 7], chapters: [] },
   { id: 11, title: 'Клинок, рассекающий демонов', coverUrl: 'https://ir.ozone.ru/s3/multimedia-1-s/7007592556.jpg', description: 'Тандзиро и охота на демонов.', status: 'COMPLETED', views: 1250000, rating: 9.5, genres: [1, 2], chapters: [] },
-  { id: 12, title: 'Человек-бензопила', coverUrl: 'https://www.1c-interes.ru/upload/resize_src/bd/bdca85d4bfbe32deef220beabe2ae81c.jpg', description: 'Жесткий экшен в мире демонов.', status: 'ONGOING', views: 980000, rating: 9.5, genres: [1, 4], chapters: [] },
+  { id: 12, title: 'Человек-бензопила', coverUrl: 'https://www.1c-interes.ru/upload/resize_src/bd/bdca85d4bfbe32deef220beabe2ae81c.jpg', description: 'Жесткий экшен в мире демонов.', status: 'ONGOING', views: 980000, rating: 9.5, genres: [1, 4], chapters: chainsawManChapters },
   { id: 13, title: 'Моя геройская академия', coverUrl: 'https://n.cdn.cdek.shopping/images/shopping/b6WcVO5r1H0AnaTG.jpg?v=1', description: 'Школа супергероев и становление Мидории.', status: 'COMPLETED', views: 1150000, rating: 9.4, genres: [1, 7], chapters: [] },
   { id: 14, title: 'Магическая битва', coverUrl: 'https://lavkaapelsin.ru/i/product/magicheskaya-bitva-kniga-1.jpg?1649187220', description: 'Проклятия, шаманы и Сукуна.', status: 'ONGOING', views: 1020000, rating: 9.4, genres: [1, 4], chapters: [] },
   { id: 15, title: 'Токийский гуль', coverUrl: 'https://ir.ozone.ru/s3/multimedia-1-b/7388734799.jpg', description: 'Канеки между миром людей и гулей.', status: 'COMPLETED', views: 990000, rating: 9.4, genres: [4, 6], chapters: [] },

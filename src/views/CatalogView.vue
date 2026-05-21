@@ -35,7 +35,11 @@
                 </span>
                 <span>{{ card.rating?.toFixed(2) || '0.00' }} / 10</span>
               </p>
-              <button class="fav-btn" @click="mangaStore.toggleFavorite(card.id)">
+              <button
+                class="fav-btn"
+                :class="{ 'is-favorite': mangaStore.isFavorite(card.id) }"
+                @click="mangaStore.toggleFavorite(card.id)"
+              >
                 {{ mangaStore.isFavorite(card.id) ? 'Убрать из избранного' : 'В избранное' }}
               </button>
             </article>
@@ -409,6 +413,19 @@ export default {
   padding: 6px 8px;
   cursor: pointer;
   color: #7f3652;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.fav-btn.is-favorite {
+  background: linear-gradient(135deg, #ff82b4, #e91e7a);
+  color: #fff;
+  border-color: #db2777;
+  box-shadow: 0 3px 10px rgba(236, 72, 153, 0.3);
+}
+
+.fav-btn.is-favorite:hover {
+  filter: brightness(1.04);
 }
 
 .carousel-arrow {

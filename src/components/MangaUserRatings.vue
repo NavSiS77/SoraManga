@@ -108,33 +108,41 @@ export default {
 <style scoped>
 .ratings-card {
   border-radius: 14px;
-  padding: 16px 18px;
-  background: linear-gradient(165deg, #1f1723 0%, #2a1f2e 55%, #1a141c 100%);
+  padding: 14px 16px;
+  background: linear-gradient(165deg, #2a1f35 0%, #1e1628 50%, #15111c 100%);
   color: #f8e9f2;
   border: 1px solid #3d2a35;
-  box-shadow: 0 14px 32px rgba(40, 20, 35, 0.35);
+  box-shadow: 0 10px 24px rgba(40, 20, 35, 0.28);
 }
 
 .ratings-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 16px;
   flex-wrap: wrap;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .ratings-title {
   margin: 0;
-  font-size: 1.05rem;
+  flex: 1 1 auto;
+  min-width: 10rem;
+  font-size: 1.15rem;
   font-weight: 700;
   letter-spacing: 0.02em;
+  line-height: 1.25;
 }
 
 .ratings-avg {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(251, 191, 36, 0.22);
   font-weight: 700;
 }
 
@@ -155,34 +163,37 @@ export default {
 }
 
 .vote-row {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 12px 14px;
+  margin-bottom: 12px;
   padding-bottom: 12px;
   border-bottom: 1px solid #3d2a35;
 }
 
 .vote-label {
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 600;
   color: #d8b8c8;
+  white-space: nowrap;
 }
 
 .stars {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .star-btn {
-  width: 32px;
-  height: 32px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   border-radius: 8px;
   border: 1px solid #5c4152;
   background: #2d1f28;
   color: #e9d4df;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   cursor: pointer;
   line-height: 1;
@@ -203,14 +214,25 @@ export default {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: repeat(5, auto);
+  grid-auto-flow: column;
+  column-gap: 20px;
+  row-gap: 5px;
+}
+
+@media (max-width: 560px) {
+  .rows {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+    grid-auto-flow: row;
+  }
 }
 
 .row {
   display: grid;
-  grid-template-columns: 52px 1fr 52px 56px;
+  grid-template-columns: 48px 1fr 52px 56px;
   align-items: center;
   gap: 8px;
   font-size: 13px;
@@ -338,16 +360,13 @@ export default {
   font-size: 10px;
 }
 
-@media (max-width: 480px) {
-  .row {
-    grid-template-columns: 48px 1fr 48px 52px;
-    font-size: 12px;
+@media (max-width: 520px) {
+  .vote-row {
+    grid-template-columns: 1fr;
   }
 
-  .star-btn {
-    width: 28px;
-    height: 28px;
-    font-size: 11px;
+  .vote-label {
+    margin-bottom: 2px;
   }
 }
 </style>

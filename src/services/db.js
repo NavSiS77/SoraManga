@@ -3,7 +3,7 @@ import { getShikimoriScore, getShikimoriPopularityRank } from '../data/shikimori
 
 const dbStorageKey = 'soramanga_db'
 const usersStorageKey = 'soramanga_users'
-const dbVersion = 12
+const dbVersion = 13
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
 
