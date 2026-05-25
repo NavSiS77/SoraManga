@@ -4,7 +4,6 @@
       <div class="header-inner">
         <div class="brand-group">
           <RouterLink to="/" class="logo">SoraManga</RouterLink>
-          <p class="tagline">Manga reader platform</p>
         </div>
         <nav class="navbar">
           <RouterLink v-if="!authStore.isAuthenticated" to="/auth">Вход / Регистрация</RouterLink>
@@ -21,7 +20,6 @@
     <footer class="footer">
       <div class="footer-inner">
         <span>© 2026 SoraManga</span>
-        <span>Дипломный SPA-проект на Vue</span>
       </div>
     </footer>
   </div>
@@ -85,12 +83,11 @@ button,
 input,
 select,
 textarea {
-  font: inherit;
-}
-
-button,
-.navbar a {
-  min-height: 36px;
+  font-family: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  font-stretch: inherit;
 }
 
 a:focus-visible,
@@ -184,11 +181,9 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
   text-decoration: none;
   color: #8e365a;
   font-size: 13px;
-  line-height: 1.2;
-  letter-spacing: 0 !important;
-  word-spacing: 0 !important;
-  font-kerning: normal;
-  padding: 5px 9px;
+  font-weight: 600;
+  height: 36px;
+  padding: 0 16px;
   border-radius: 999px;
   border: 1px solid transparent;
   white-space: nowrap;
@@ -228,37 +223,6 @@ h1, h2, h3, h4, h5, h6, p, span, a, button, input {
   font-kerning: normal;
 }
 
-@media (max-width: 640px) {
-  .header-inner {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .navbar {
-    width: 100%;
-  }
-  .brand-group {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 4px;
-  }
-  .footer-inner {
-    flex-direction: column;
-    justify-content: center;
-    gap: 4px;
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-}
-
-@media (max-width: 400px) {
-  .logo {
-    font-size: 20px;
-  }
-  .navbar a {
-    font-size: 12px;
-    padding: 4px 8px;
-  }
-}
 
 @media (min-width: 1280px) {
   :root {

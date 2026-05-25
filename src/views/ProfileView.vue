@@ -40,6 +40,17 @@
               />
               <span class="bio-counter">{{ bio.length }} / 500</span>
             </label>
+            <label class="bio-field">
+              <span class="bio-label">Дата рождения</span>
+              <input
+                v-model="birthDate"
+                class="bio-input bio-input--date"
+                type="date"
+                :max="maxBirthDate"
+                @change="saveBirthDate"
+              >
+              <span class="bio-counter">Нужна для доступа к манге 18+</span>
+            </label>
           </div>
         </div>
         <div class="hero-actions">
@@ -73,7 +84,7 @@
           <span class="panel-count">{{ continueReading.length }}</span>
         </header>
         <div class="continue-list">
-          <article v-for="item in continueReading" :key="item.chapter.id" class="continue-item">
+          <article v-for="item in continueReading" :key="item.manga.id" class="continue-item">
             <RouterLink :to="`/manga/${item.manga.id}`" class="continue-cover-link">
               <img
                 class="continue-cover"
@@ -228,6 +239,8 @@ export default {
     const avatarInput = ref(null)
     const avatarUrl = ref('')
     const bio = ref('')
+    const birthDate = ref('')
+    const maxBirthDate = new Date().toISOString().slice(0, 10)
     const avatarError = ref('')
 
     const loadProfile = () => {
@@ -235,11 +248,13 @@ export default {
       if (!login) {
         avatarUrl.value = ''
         bio.value = ''
+        birthDate.value = ''
         return
       }
       const saved = profileStore.getForLogin(login)
       avatarUrl.value = saved.avatarUrl
       bio.value = saved.bio
+      birthDate.value = authStore.user?.birthDate || ''
       avatarError.value = ''
     }
 
@@ -247,6 +262,13 @@ export default {
       () => authStore.user?.login,
       () => loadProfile(),
       { immediate: true }
+    )
+
+    watch(
+      () => authStore.user?.birthDate,
+      (value) => {
+        birthDate.value = value || ''
+      }
     )
 
     const onAvatarChange = (event) => {
@@ -285,6 +307,17 @@ export default {
       profileStore.setBio(authStore.user.login, bio.value)
     }
 
+    const saveBirthDate = async () => {
+      if (!authStore.user?.login || !birthDate.value) {
+        return
+      }
+      try {
+        await authStore.updateBirthDate(birthDate.value)
+      } catch (error) {
+        avatarError.value = error.message || 'Не удалось сохранить дату рождения'
+      }
+    }
+
     const progressCount = computed(() => Object.keys(readerStore.progress).length)
 
     const ratedCount = computed(() =>
@@ -292,25 +325,31 @@ export default {
     )
 
     const continueReading = computed(() => {
+      readerStore.ensureProgressMigrated(mangaStore.mangaList)
+
       const items = []
-      for (const [chapterIdStr, page] of Object.entries(readerStore.progress)) {
-        const chapterId = Number(chapterIdStr)
-        if (!chapterId) {
+      for (const [mangaIdStr, saved] of Object.entries(readerStore.progress)) {
+        if (!saved || typeof saved !== 'object' || saved.chapterId == null) {
           continue
         }
-        for (const manga of mangaStore.mangaList) {
-          const chapter = (manga.chapters || []).find((ch) => ch.id === chapterId)
-          if (chapter) {
-            items.push({
-              manga,
-              chapter,
-              page: Number(page) || 1,
-              readerLink: `/reader/${manga.id}/${chapter.id}`,
-              sortKey: chapterId
-            })
-            break
-          }
+        const mangaId = Number(mangaIdStr)
+        const manga = mangaStore.mangaList.find((m) => m.id === mangaId)
+        if (!manga) {
+          continue
         }
+        const chapter = (manga.chapters || []).find(
+          (ch) => ch.id === Number(saved.chapterId)
+        )
+        if (!chapter) {
+          continue
+        }
+        items.push({
+          manga,
+          chapter,
+          page: Number(saved.page) || 1,
+          readerLink: `/reader/${manga.id}/${chapter.id}`,
+          sortKey: Number(saved.updatedAt) || 0
+        })
       }
       return items.sort((a, b) => b.sortKey - a.sortKey).slice(0, 8)
     })
@@ -351,6 +390,7 @@ export default {
         await mangaStore.fetchGenres()
         await mangaStore.fetchCatalog()
       }
+      readerStore.ensureProgressMigrated(mangaStore.mangaList)
     })
 
     return {
@@ -359,9 +399,12 @@ export default {
       avatarInput,
       avatarUrl,
       bio,
+      birthDate,
+      maxBirthDate,
       avatarError,
       onAvatarChange,
       saveBio,
+      saveBirthDate,
       progressCount,
       ratedCount,
       continueReading,
@@ -587,9 +630,6 @@ export default {
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: 40px;
   padding: 0 16px;
   border-radius: 10px;
@@ -688,13 +728,13 @@ export default {
 
 .panel-count {
   min-width: 28px;
-  padding: 2px 10px;
+  min-height: 26px;
+  padding: 0 10px;
   border-radius: 999px;
   background: #fce7f3;
   color: #9d174d;
   font-size: 13px;
   font-weight: 700;
-  text-align: center;
 }
 
 .continue-list {
@@ -739,8 +779,6 @@ export default {
 }
 
 .continue-btn {
-  display: inline-flex;
-  align-items: center;
   min-height: 34px;
   padding: 0 14px;
   border-radius: 8px;
@@ -807,10 +845,12 @@ export default {
 }
 
 .status {
-  padding: 2px 8px;
+  height: 24px;
+  padding: 0 8px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .status.done {
@@ -948,6 +988,10 @@ export default {
 }
 
 @media (max-width: 520px) {
+  .profile-hero {
+    padding: 14px;
+  }
+
   .profile-identity {
     grid-template-columns: 1fr;
     justify-items: center;
@@ -964,7 +1008,12 @@ export default {
   }
 
   .hero-actions {
-    justify-content: center;
+    justify-content: stretch;
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .hero-actions .btn {
     width: 100%;
   }
 
@@ -972,9 +1021,54 @@ export default {
     align-self: center;
   }
 
+  .stats-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .continue-item {
+    grid-template-columns: 52px 1fr;
+    gap: 10px;
+    padding: 10px;
+  }
+
+  .continue-cover {
+    width: 52px;
+  }
+
+  .continue-meta {
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .continue-btn {
+    width: 100%;
+  }
+
+  .panel {
+    padding: 12px 14px;
+  }
+
   .manga-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    gap: 8px;
+  }
+
+  .manga-title {
+    font-size: 12px;
+    line-height: 1.2;
+    -webkit-line-clamp: 2;
+  }
+
+  .manga-genres {
+    font-size: 10px;
+  }
+
+  .mini-btn {
+    font-size: 11px;
+    min-height: 32px;
+    padding: 0 8px;
   }
 }
 </style>

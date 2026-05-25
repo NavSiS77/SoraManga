@@ -1,5 +1,7 @@
 import { defineStore } from 'pinia'
 import { AuthApi } from '../services/authApi'
+import { DbService } from '../services/db'
+import { parseBirthDate } from '../utils/ageRestriction'
 
 const userKey = 'auth_user'
 
@@ -17,7 +19,7 @@ export const useAuthStore = defineStore('AuthStore', {
     clearError() {
       this.error = ''
     },
-    validateCredentials({ login, password, confirmPassword, isRegister = false }) {
+    validateCredentials({ login, password, confirmPassword, birthDate, isRegister = false }) {
       const normalizedLogin = String(login || '').trim()
       const normalizedPassword = String(password || '')
       if (!normalizedLogin || normalizedLogin.length < 3) {
@@ -32,9 +34,24 @@ export const useAuthStore = defineStore('AuthStore', {
       if (isRegister && normalizedPassword !== String(confirmPassword || '')) {
         throw new Error('Пароли не совпадают')
       }
+      let normalizedBirthDate = null
+      if (isRegister) {
+        if (!birthDate) {
+          throw new Error('Укажите дату рождения')
+        }
+        const parsed = parseBirthDate(birthDate)
+        if (!parsed) {
+          throw new Error('Некорректная дата рождения')
+        }
+        if (parsed > new Date()) {
+          throw new Error('Дата рождения не может быть в будущем')
+        }
+        normalizedBirthDate = String(birthDate).slice(0, 10)
+      }
       return {
         login: normalizedLogin,
-        password: normalizedPassword
+        password: normalizedPassword,
+        birthDate: normalizedBirthDate
       }
     },
     async login(payload) {
@@ -63,6 +80,21 @@ export const useAuthStore = defineStore('AuthStore', {
         throw error
       } finally {
         this.isLoading = false
+      }
+    },
+    async updateBirthDate(birthDate) {
+      if (!this.user) {
+        return
+      }
+      const parsed = parseBirthDate(birthDate)
+      if (!parsed) {
+        throw new Error('Некорректная дата рождения')
+      }
+      const value = String(birthDate).slice(0, 10)
+      const updated = DbService.updateUserBirthDate(this.user.id, value)
+      if (updated) {
+        this.user = updated
+        localStorage.setItem(userKey, JSON.stringify(this.user))
       }
     },
     logout() {

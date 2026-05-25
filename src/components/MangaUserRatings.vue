@@ -47,11 +47,6 @@
         <span class="cnt">{{ formatInt(row.count) }}</span>
       </li>
     </ul>
-    <p class="hint">
-      Распределение строится вокруг ориентира
-      <a href="https://shikimori.io/mangas?order=popularity" target="_blank" rel="noopener noreferrer">Shikimori</a>;
-      ваш голос сразу учитывается в сумме.
-    </p>
   </section>
 </template>
 
@@ -189,6 +184,7 @@ export default {
   flex: 0 0 36px;
   width: 36px;
   height: 36px;
+  padding: 0;
   border-radius: 8px;
   border: 1px solid #5c4152;
   background: #2d1f28;
@@ -196,7 +192,6 @@ export default {
   font-size: 13px;
   font-weight: 700;
   cursor: pointer;
-  line-height: 1;
 }
 
 .star-btn:hover {

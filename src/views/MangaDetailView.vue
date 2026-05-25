@@ -13,16 +13,28 @@
       </div>
       <div class="hero-main">
         <p class="eyebrow">Тайтл</p>
-        <h1 class="title">{{ manga.title }}</h1>
+        <div class="title-row">
+          <h1 class="title">{{ manga.title }}</h1>
+          <AgeRatingBadge :manga-id="manga.id" :age-rating="manga.ageRating" />
+        </div>
+        <p v-if="manga.ageRating === 'rx'" class="age-notice">
+          Манга 18+. Чтение доступно только зарегистрированным пользователям старше 18 лет.
+        </p>
         <p class="hero-description">{{ longDescription }}</p>
         <p v-if="genreLine" class="genres-line">{{ genreLine }}</p>
 
+        <AdultContentGate
+          v-if="!readAccess.allowed && manga.ageRating === 'rx'"
+          :message="readAccess.reason"
+          :manga-title="manga.title"
+        />
+
         <div class="actions">
           <component
-            :is="firstChapterLink ? 'RouterLink' : 'span'"
-            v-bind="firstChapterLink ? { to: firstChapterLink } : {}"
+            :is="firstChapterLink && readAccess.allowed ? 'RouterLink' : 'span'"
+            v-bind="firstChapterLink && readAccess.allowed ? { to: firstChapterLink } : {}"
             class="btn btn-primary"
-            :class="{ 'is-disabled': !firstChapterLink }"
+            :class="{ 'is-disabled': !firstChapterLink || !readAccess.allowed }"
           >
             Читать с {{ firstChapterLabel }}
           </component>
@@ -85,7 +97,6 @@
             <dt>Рейтинг</dt>
             <dd>
               {{ (manga.rating ?? 0).toFixed(2) }} / 10
-              <span class="rating-note">Shikimori</span>
             </dd>
           </div>
       </dl>
@@ -100,14 +111,65 @@
     </section>
 
     <section class="chapters-block">
-      <h2 class="panel-title">Список глав</h2>
-      <ul v-if="sortedChapters.length" class="chapters">
-        <li v-for="chapter in sortedChapters" :key="chapter.id">
-          <span class="ch-label">Глава {{ chapter.number }}: {{ chapter.title }}</span>
-          <RouterLink class="ch-link" :to="`/reader/${manga.id}/${chapter.id}`">Читать</RouterLink>
+      <h2 class="panel-title">Список томов</h2>
+      <ul v-if="sortedVolumes.length" class="chapters">
+        <li v-for="volume in sortedVolumes" :key="volume.number" class="volume-item">
+          <div class="volume-head">
+            <span class="ch-label">Том {{ volume.number }}: {{ volume.title }}</span>
+            <div class="volume-actions">
+              <RouterLink
+                v-if="volumeReadLink(volume) && readAccess.allowed"
+                class="ch-link ch-read-btn"
+                :to="volumeReadLink(volume)"
+              >
+                Читать
+              </RouterLink>
+              <!-- <span v-else class="ch-soon">Скоро</span> -->
+              <button
+                type="button"
+                class="volume-chevron"
+                :class="{ 'is-open': isVolumeOpen(volume.number) }"
+                :aria-expanded="isVolumeOpen(volume.number)"
+                :aria-controls="`volume-chapters-${volume.number}`"
+                @click="toggleVolume(volume.number)"
+              >
+                <span class="sr-only">
+                  {{ isVolumeOpen(volume.number) ? 'Скрыть главы тома' : 'Показать главы тома' }}
+                </span>
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path
+                    d="M7 10l5 5 5-5"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2.5"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <ul
+            v-show="isVolumeOpen(volume.number)"
+            :id="`volume-chapters-${volume.number}`"
+            class="volume-chapters"
+          >
+            <li v-for="chapter in volume.chapters" :key="chapter.id">
+              <RouterLink
+                v-if="readAccess.allowed"
+                class="volume-chapter-link"
+                :to="`/reader/${manga.id}/${chapter.id}`"
+              >
+                {{ formatChapterListLabel(volume.number, chapter) }}
+              </RouterLink>
+              <span v-else class="volume-chapter-link is-locked">
+                {{ formatChapterListLabel(volume.number, chapter) }}
+              </span>
+            </li>
+          </ul>
         </li>
       </ul>
-      <p v-else class="empty-chapters">Пока нет загруженных глав — загляни позже или попроси администратора добавить том.</p>
+      <p v-else class="empty-chapters">Пока нет загруженных томов — загляни позже или попроси администратора добавить том.</p>
     </section>
 
     <section v-if="similar.length" class="similar-block">
@@ -127,6 +189,7 @@
           </RouterLink>
           <RouterLink :to="`/manga/${item.id}`" class="similar-title">{{ item.title }}</RouterLink>
           <p class="similar-meta">
+            <AgeRatingBadge :manga-id="item.id" :age-rating="item.ageRating" />
             <span>{{ item.rating?.toFixed(1) || '—' }}</span>
             ·
             <span>жанров: {{ item.sharedGenres }}</span>
@@ -139,24 +202,36 @@
 </template>
 
 <script>
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { useMangaStore } from '../stores/manga'
 import { MangaApi } from '../services/mangaApi'
 import { getMangaExtendedMeta } from '../data/mangaExtraMeta'
 import { getLongDescription } from '../data/mangaLongDescriptions'
 import MangaUserRatings from '../components/MangaUserRatings.vue'
+import AgeRatingBadge from '../components/AgeRatingBadge.vue'
+import AdultContentGate from '../components/AdultContentGate.vue'
+import { useAuthStore } from '../stores/auth'
+import { canReadManga } from '../utils/ageRestriction'
+import {
+  groupChaptersByVolume,
+  getVolumeReadChapter,
+  formatChapterListLabel
+} from '../utils/volumes'
 
 export default {
   name: 'MangaDetailView',
-  components: { MangaUserRatings },
+  components: { MangaUserRatings, AgeRatingBadge, AdultContentGate },
   setup() {
     const route = useRoute()
     const mangaStore = useMangaStore()
+    const authStore = useAuthStore()
 
     const manga = computed(() =>
       mangaStore.mangaList.find((item) => item.id === Number(route.params.id))
     )
+
+    const readAccess = computed(() => canReadManga(manga.value, authStore.user))
 
     const meta = computed(() => getMangaExtendedMeta(manga.value))
 
@@ -164,6 +239,30 @@ export default {
       const list = manga.value?.chapters ? [...manga.value.chapters] : []
       return list.sort((a, b) => Number(a.number) - Number(b.number))
     })
+
+    const sortedVolumes = computed(() => groupChaptersByVolume(sortedChapters.value))
+
+    const openVolumes = ref(new Set())
+
+    const isVolumeOpen = (volumeNumber) => openVolumes.value.has(volumeNumber)
+
+    const toggleVolume = (volumeNumber) => {
+      const next = new Set(openVolumes.value)
+      if (next.has(volumeNumber)) {
+        next.delete(volumeNumber)
+      } else {
+        next.add(volumeNumber)
+      }
+      openVolumes.value = next
+    }
+
+    const volumeReadLink = (volume) => {
+      const chapter = getVolumeReadChapter(volume)
+      if (!manga.value || !chapter) {
+        return null
+      }
+      return `/reader/${manga.value.id}/${chapter.id}`
+    }
 
     const firstChapter = computed(() => sortedChapters.value[0] || null)
 
@@ -174,9 +273,13 @@ export default {
       return `/reader/${manga.value.id}/${firstChapter.value.id}`
     })
 
-    const firstChapterLabel = computed(() =>
-      firstChapter.value ? `главы ${firstChapter.value.number}` : 'начала'
-    )
+    const firstChapterLabel = computed(() => {
+      if (!firstChapter.value) {
+        return 'начала'
+      }
+      const vol = firstChapter.value.volume ?? firstChapter.value.number
+      return `тома ${vol}`
+    })
 
     const totalChaptersLabel = computed(() => {
       const n = meta.value.totalChapters
@@ -240,9 +343,16 @@ export default {
 
     return {
       mangaStore,
+      authStore,
       manga,
+      readAccess,
       meta,
       sortedChapters,
+      sortedVolumes,
+      isVolumeOpen,
+      toggleVolume,
+      volumeReadLink,
+      formatChapterListLabel,
       firstChapterLink,
       firstChapterLabel,
       totalChaptersLabel,
@@ -375,12 +485,30 @@ export default {
   font-weight: 700;
 }
 
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
 .title {
   margin: 0;
   font-size: clamp(1.55rem, 3vw, 2.1rem);
   line-height: 1.12;
   color: #831843;
   font-weight: 800;
+}
+
+.age-notice {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #9f1239;
+  background: #fff1f2;
+  border: 1px solid #fecaca;
 }
 
 .hero-description {
@@ -413,9 +541,6 @@ export default {
 }
 
 .btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-height: 42px;
   padding: 0 18px;
   border-radius: 10px;
@@ -424,7 +549,7 @@ export default {
   text-decoration: none;
   border: 1px solid transparent;
   cursor: pointer;
-  line-height: 1.2;
+  padding-top: 8px;
 }
 
 .btn-primary {
@@ -492,11 +617,12 @@ export default {
 }
 
 .pill {
-  display: inline-block;
-  padding: 4px 12px;
+  height: 28px;
+  padding: 0 12px;
   border-radius: 999px;
   font-size: 13px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .pill.done {
@@ -519,33 +645,153 @@ export default {
   gap: 6px;
 }
 
-.chapters li {
+.volume-item {
   background: #fff8fc;
   border: 1px solid #efbfd3;
   border-radius: 10px;
-  padding: 10px 14px;
+  overflow: hidden;
+}
+
+.volume-head {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
+  padding: 10px 14px;
   flex-wrap: wrap;
 }
 
 .ch-label {
+  flex: 1;
   color: #4e2a3a;
   font-size: 15px;
+  font-weight: 600;
+  min-width: 0;
+  line-height: 1.35;
 }
 
-.ch-link {
+.volume-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.ch-link,
+.ch-read-btn {
   color: #c2185b;
   font-weight: 600;
   text-decoration: none;
   white-space: nowrap;
   font-size: 15px;
+  min-height: 32px;
+  padding: 0 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
-.ch-link:hover {
+.ch-link:hover,
+.ch-read-btn:hover {
   text-decoration: underline;
+  color: #9d174d;
+}
+
+.ch-soon {
+  font-size: 13px;
+  font-weight: 600;
+  color: #b8849a;
+  white-space: nowrap;
+  padding: 0 8px;
+}
+
+.volume-chevron {
+  flex-shrink: 0;
+  margin: 0;
+  padding: 2px;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  color: #9d2a60;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  box-shadow: none;
+}
+
+.volume-chevron svg {
+  width: 22px;
+  height: 22px;
+  display: block;
+  transition: transform 0.2s ease;
+}
+
+.volume-chevron.is-open svg {
+  transform: rotate(180deg);
+}
+
+.volume-chevron:hover {
+  color: #c2185b;
+}
+
+.volume-chevron:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(236, 72, 153, 0.25);
+  border-radius: 4px;
+}
+
+.volume-chapters {
+  list-style: none;
+  margin: 0;
+  padding: 0 14px 10px;
+  display: grid;
+  gap: 4px;
+  border-top: 1px solid #f5dce8;
+  background: #fffafc;
+}
+
+.volume-chapters li {
+  margin: 0;
+}
+
+.volume-chapter-link {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  color: #5a2b3e;
+  font-size: 14px;
+  text-decoration: none;
+  line-height: 1.2;
+}
+
+.volume-chapter-link:hover {
+  background: #ffe8f2;
+  color: #c2185b;
+}
+
+.volume-chapter-link.is-locked {
+  color: #9d7a8a;
+  cursor: not-allowed;
+  opacity: 0.75;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 .empty-chapters {
@@ -575,7 +821,16 @@ export default {
 @media (max-width: 520px) {
   .similar-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 12px;
+    gap: 8px;
+  }
+
+  .similar-title {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+
+  .similar-meta {
+    font-size: 11px;
   }
 }
 
@@ -633,13 +888,48 @@ export default {
 }
 
 @media (max-width: 640px) {
+  .meta-strip {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    overflow: visible;
+    padding-bottom: 0;
+  }
+
+  .meta-item {
+    flex: none;
+    min-width: 0;
+    margin: 0;
+    padding: 10px 8px;
+    border-right: none;
+    border: 1px solid #ecd0de;
+    border-radius: 10px;
+  }
+
+  .meta-item:first-child,
+  .meta-item:last-child {
+    padding: 10px 8px;
+  }
+
+  .meta-block,
+  .chapters-block,
+  .similar-block {
+    padding: 12px 14px;
+  }
+
   .hero {
-    grid-template-columns: minmax(140px, 42vw) 1fr;
+    grid-template-columns: minmax(120px, 38vw) 1fr;
+    gap: 12px;
     padding: 12px;
   }
 
   .cover {
-    min-height: 240px;
+    min-height: 200px;
+  }
+
+  .hero-description {
+    max-height: 10rem;
+    font-size: 14px;
   }
 
   .actions {
@@ -650,6 +940,25 @@ export default {
   .btn {
     width: 100%;
   }
+
+  .volume-head {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .volume-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .volume-chapter-link {
+    font-size: 13px;
+    line-height: 1.35;
+    padding: 10px 8px;
+    min-height: 44px;
+    align-items: flex-start;
+  }
 }
 
 @media (max-width: 480px) {
@@ -659,17 +968,23 @@ export default {
   }
 
   .cover-wrap {
-    max-width: 280px;
+    max-width: min(280px, 100%);
     margin: 0 auto;
-    min-height: 360px;
+    min-height: 0;
   }
 
   .cover {
-    min-height: 360px;
+    min-height: 0;
+    aspect-ratio: 3 / 4;
+    height: auto;
   }
 
-  .actions {
-    align-items: stretch;
+  .genres-line {
+    font-size: 13px;
+  }
+
+  .meta-strip {
+    grid-template-columns: 1fr;
   }
 }
 </style>

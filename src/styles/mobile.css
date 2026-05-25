@@ -1,0 +1,108 @@
+/**
+ * Адаптация под телефоны — подключается последним.
+ */
+
+@media (max-width: 768px) {
+  :root {
+    --container-padding: 14px;
+  }
+
+  .page {
+    padding-top: 10px;
+    padding-bottom: max(20px, env(safe-area-inset-bottom));
+  }
+
+  .header-inner {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    min-height: 52px;
+    padding-top: max(8px, env(safe-area-inset-top));
+    padding-bottom: 8px;
+  }
+
+  .brand-group {
+    flex-direction: row;
+    align-items: center;
+    min-width: 0;
+  }
+
+  .logo {
+    font-size: 20px;
+    white-space: nowrap;
+  }
+
+  .navbar {
+    width: auto;
+    flex-shrink: 0;
+    flex-wrap: nowrap;
+    gap: 4px;
+    justify-content: flex-end;
+  }
+
+  .navbar a {
+    height: 38px;
+    padding: 0 11px;
+    font-size: 12px;
+  }
+
+  .footer-inner {
+    flex-direction: row;
+    justify-content: center;
+    padding-top: 10px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+  }
+}
+
+@media (max-width: 380px) {
+  .navbar a {
+    padding: 0 9px;
+    font-size: 11px;
+  }
+
+  .logo {
+    font-size: 18px;
+  }
+}
+
+/* Удобнее нажимать пальцем */
+@media (hover: none) and (pointer: coarse) {
+  button,
+  .navbar a,
+  a[class*='btn'],
+  [class*='-btn']:is(a, button):not(.edge),
+  .catalog-more-btn,
+  .expand-btn,
+  .fav-btn,
+  .continue-btn,
+  .volume-chapter-link {
+    min-height: 44px;
+  }
+
+  .edge {
+    width: 26%;
+    min-width: 52px;
+  }
+
+  .carousel-arrow {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+/* Горизонтальный скролл без «залипания» страницы */
+.feed-block,
+.detail,
+.profile,
+.home,
+.reader {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.block-head a {
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+}

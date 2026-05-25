@@ -1,0 +1,24 @@
+{
+  "mangaId": 12,
+  "pdfPath": "import/chainsaw-man.pdf",
+  "scale": 2,
+  "jpegQuality": 88,
+  "chapters": [
+    {
+      "id": 120001,
+      "number": 1,
+      "folder": "1",
+      "title": "Глава 1. Пес и бензопила",
+      "startPage": 1,
+      "endPage": 53
+    },
+    {
+      "id": 120002,
+      "number": 2,
+      "folder": "2",
+      "title": "Глава 2",
+      "startPage": 54,
+      "endPage": 106
+    }
+  ]
+}

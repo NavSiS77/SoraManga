@@ -1,18 +1,33 @@
 import { genres, mangaList } from '../data/mockData'
+import { getShikimoriAgeRating } from '../utils/ageRestriction'
 import { getShikimoriScore, getShikimoriPopularityRank } from '../data/shikimoriScores'
+import { getChapterVolumeNumber } from '../utils/volumes'
 
 const dbStorageKey = 'soramanga_db'
 const usersStorageKey = 'soramanga_users'
-const dbVersion = 13
+const dbVersion = 21
 
 const clone = (value) => JSON.parse(JSON.stringify(value))
 
 const withShikimoriRatings = (list) =>
   list.map((m) => ({
     ...m,
+    ageRating: m.ageRating || getShikimoriAgeRating(m.id),
     rating: Math.round(getShikimoriScore(m.id, m.rating) * 100) / 100,
     popularityRank: getShikimoriPopularityRank(m.id)
   }))
+
+const stripInvalidChainsawVolumes = (manga) => {
+  if (Number(manga.id) !== 12 || !Array.isArray(manga.chapters)) {
+    return manga
+  }
+  return {
+    ...manga,
+    chapters: manga.chapters.filter((chapter) => Number(chapter.volume) !== 8)
+  }
+}
+
+const normalizeMangaList = (list) => withShikimoriRatings(list.map(stripInvalidChainsawVolumes))
 const rootScope = Function('return this')()
 const runSql = (sql, params = []) => {
   if (!rootScope.alasql) {
@@ -49,7 +64,7 @@ const loadDb = () => {
     version: dbVersion,
     name: 'manga.db',
     genres: clone(genres),
-    manga: withShikimoriRatings(clone(mangaList))
+    manga: normalizeMangaList(clone(mangaList))
   }
   const saved = localStorage.getItem(dbStorageKey)
   if (saved) {
@@ -61,17 +76,58 @@ const loadDb = () => {
     const seedIds = new Set(initialDb.manga.map((item) => item.id))
     const oldManga = Array.isArray(parsed.manga) ? parsed.manga : []
     const oldById = new Map(oldManga.map((item) => [item.id, item]))
+    const enrichChaptersFromSeed = (oldChapters, seedChapters) => {
+      const seedById = new Map(seedChapters.map((ch) => [ch.id, ch]))
+      return oldChapters.map((old) => {
+        const seed = seedById.get(old.id)
+        if (!seed) {
+          return old
+        }
+        return {
+          ...old,
+          number: seed.number ?? old.number,
+          volume: seed.volume ?? old.volume,
+          volumeTitle: seed.volumeTitle ?? old.volumeTitle,
+          title: seed.title ?? old.title,
+          pages: Array.isArray(old.pages) && old.pages.length ? old.pages : seed.pages
+        }
+      })
+    }
+
+    const mergeChapters = (seedChapters, oldChapters) => {
+      if (!Array.isArray(oldChapters) || !oldChapters.length) {
+        return clone(seedChapters)
+      }
+      if (!Array.isArray(seedChapters) || !seedChapters.length) {
+        return clone(oldChapters)
+      }
+      const enrichedOld = enrichChaptersFromSeed(oldChapters, seedChapters)
+      if (seedChapters.length > enrichedOld.length) {
+        return clone(seedChapters)
+      }
+      const oldIds = new Set(enrichedOld.map((ch) => ch.id))
+      const added = seedChapters.filter((ch) => !oldIds.has(ch.id))
+      if (added.length) {
+        return clone(
+          [...enrichedOld, ...added].sort((a, b) => a.number - b.number)
+        )
+      }
+      return clone(enrichedOld)
+    }
+
     const mergedSeedManga = initialDb.manga.map((seed) => {
       const old = oldById.get(seed.id)
       if (!old || !Array.isArray(old.chapters) || !old.chapters.length) {
         return seed
       }
-      return { ...seed, chapters: clone(old.chapters) }
+      return { ...seed, chapters: mergeChapters(seed.chapters, old.chapters) }
     })
-    const customManga = oldManga.filter((item) => !seedIds.has(item.id))
+    const customManga = oldManga
+      .filter((item) => !seedIds.has(item.id))
+      .map(stripInvalidChainsawVolumes)
     const migratedDb = {
       ...initialDb,
-      manga: [...mergedSeedManga, ...customManga]
+      manga: normalizeMangaList([...mergedSeedManga, ...customManga])
     }
     localStorage.setItem(dbStorageKey, JSON.stringify(migratedDb))
     return migratedDb
@@ -125,6 +181,7 @@ export const DbService = {
       views: 0,
       genres: payload.genres || [],
       chapters: [],
+      ageRating: payload.ageRating || 'none',
       rating: Math.round(getShikimoriScore(nextId, payload.rating ?? 8) * 100) / 100,
       popularityRank: getShikimoriPopularityRank(nextId)
     }
@@ -139,15 +196,50 @@ export const DbService = {
       return null
     }
     const chapterId = Date.now()
+    const volume = Number(payload.volume) || 1
     const chapter = {
       id: chapterId,
       number: payload.number,
+      volume,
+      volumeTitle: payload.volumeTitle || `Том ${volume}`,
       title: payload.title,
       pages: payload.pages || []
     }
     manga.chapters.push(chapter)
+    manga.chapters.sort((a, b) => Number(a.volume) - Number(b.volume) || Number(a.number) - Number(b.number))
     saveDb(db)
     return clone(chapter)
+  },
+  deleteChapter(mangaId, chapterId) {
+    const db = loadDb()
+    const manga = db.manga.find((item) => item.id === Number(mangaId))
+    if (!manga) {
+      return false
+    }
+    const before = manga.chapters.length
+    manga.chapters = manga.chapters.filter((chapter) => chapter.id !== Number(chapterId))
+    if (manga.chapters.length === before) {
+      return false
+    }
+    saveDb(db)
+    return true
+  },
+  deleteVolume(mangaId, volumeNumber) {
+    const db = loadDb()
+    const manga = db.manga.find((item) => item.id === Number(mangaId))
+    if (!manga) {
+      return false
+    }
+    const volume = Number(volumeNumber)
+    const before = manga.chapters.length
+    manga.chapters = manga.chapters.filter(
+      (chapter) => getChapterVolumeNumber(chapter) !== volume
+    )
+    if (manga.chapters.length === before) {
+      return false
+    }
+    saveDb(db)
+    return true
   },
   login({ login, password }) {
     const users = loadUsers()
@@ -155,9 +247,9 @@ export const DbService = {
     if (!user) {
       throw new Error('Неверный логин или пароль')
     }
-    return { id: user.id, login: user.login, role: user.role }
+    return { id: user.id, login: user.login, role: user.role, birthDate: user.birthDate || null }
   },
-  register({ login, password }) {
+  register({ login, password, birthDate }) {
     const users = loadUsers()
     const exists = runSql('SELECT * FROM ? WHERE login = ?', [users, login])[0]
     if (exists) {
@@ -167,10 +259,21 @@ export const DbService = {
       id: Date.now(),
       login,
       password,
-      role: 'USER'
+      role: 'USER',
+      birthDate: birthDate || null
     }
     users.push(user)
     localStorage.setItem(usersStorageKey, JSON.stringify(users))
-    return { id: user.id, login: user.login, role: user.role }
+    return { id: user.id, login: user.login, role: user.role, birthDate: user.birthDate }
+  },
+  updateUserBirthDate(userId, birthDate) {
+    const users = loadUsers()
+    const user = users.find((item) => item.id === Number(userId))
+    if (!user) {
+      return null
+    }
+    user.birthDate = birthDate
+    localStorage.setItem(usersStorageKey, JSON.stringify(users))
+    return { id: user.id, login: user.login, role: user.role, birthDate: user.birthDate }
   }
 }

@@ -5,7 +5,12 @@
   "scripts": {
     "serve": "vue-cli-service serve",
     "build": "vue-cli-service build",
-    "lint": "vue-cli-service lint"
+    "lint": "vue-cli-service lint",
+    "import:pdf": "node scripts/import-pdf-chapters.mjs",
+    "import:pdf:info": "node scripts/import-pdf-chapters.mjs info",
+    "sync:chainsaw": "node scripts/sync-chainsaw-chapters.mjs",
+    "fetch:age-ratings": "node scripts/fetch-shikimori-age-ratings.mjs",
+    "convert:jfif": "node scripts/convert-jfif-to-jpg.mjs"
   },
   "dependencies": {
     "alasql": "^4.17.2",
@@ -21,7 +26,9 @@
     "@vue/cli-plugin-eslint": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
     "eslint": "^7.32.0",
-    "eslint-plugin-vue": "^8.0.3"
+    "eslint-plugin-vue": "^8.0.3",
+    "pdf-to-img": "^6.1.0",
+    "sharp": "^0.34.5"
   },
   "eslintConfig": {
     "root": true,

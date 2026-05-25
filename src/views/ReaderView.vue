@@ -1,6 +1,16 @@
 <template>
-  <section v-if="chapter && page" class="reader">
-    <header class="reader-toolbar">
+  <AdultContentGate
+    v-if="manga && !readAccess.allowed"
+    :message="readAccess.reason"
+    :manga-title="manga.title"
+  />
+  <section
+    v-else-if="chapter && page"
+    ref="readerRoot"
+    class="reader"
+    :class="{ 'is-immersive': isImmersive }"
+  >
+    <header v-show="!isFullscreen" class="reader-toolbar">
       <div class="reader-toolbar-info">
         <h1 class="reader-title">{{ manga.title }} — Глава {{ chapter.number }}</h1>
         <p class="reader-page-info">Страница {{ readerStore.currentPage }} / {{ chapter.pages.length }}</p>
@@ -55,21 +65,29 @@
 </template>
 
 <script>
-import { computed, onMounted, onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useMangaStore } from '../stores/manga'
 import { useReaderStore } from '../stores/reader'
 import { MangaApi } from '../services/mangaApi'
+import AdultContentGate from '../components/AdultContentGate.vue'
+import { useAuthStore } from '../stores/auth'
+import { canReadManga } from '../utils/ageRestriction'
 
 export default {
   name: 'ReaderView',
+  components: { AdultContentGate },
   setup() {
     const route = useRoute()
     const router = useRouter()
     const mangaStore = useMangaStore()
     const readerStore = useReaderStore()
+    const authStore = useAuthStore()
+    const readerRoot = ref(null)
     const readerViewport = ref(null)
-    const isFullscreen = ref(false)
+    const isNativeFullscreen = ref(false)
+    const isImmersive = ref(false)
+    const isFullscreen = computed(() => isNativeFullscreen.value || isImmersive.value)
 
     const manga = computed(() =>
       mangaStore.mangaList.find((item) => item.id === Number(route.params.mangaId))
@@ -79,53 +97,111 @@ export default {
     )
     const page = computed(() => chapter.value?.pages[readerStore.currentPage - 1])
 
+    const readAccess = computed(() => canReadManga(manga.value, authStore.user))
+
     const nextPage = () => {
       readerStore.nextPage(chapter.value.pages.length)
-      readerStore.saveProgress()
+      readerStore.saveProgress(Number(route.params.mangaId))
     }
     const prevPage = () => {
       readerStore.prevPage()
-      readerStore.saveProgress()
+      readerStore.saveProgress(Number(route.params.mangaId))
     }
 
+    const getFullscreenElement = () =>
+      document.fullscreenElement ||
+      document.webkitFullscreenElement ||
+      null
+
     const syncFullscreenState = () => {
-      isFullscreen.value = document.fullscreenElement === readerViewport.value
+      isNativeFullscreen.value = getFullscreenElement() === readerViewport.value
+    }
+
+    const requestElementFullscreen = (el) => {
+      const request =
+        el.requestFullscreen?.bind(el) ||
+        el.webkitRequestFullscreen?.bind(el) ||
+        el.msRequestFullscreen?.bind(el)
+      return request ? request() : Promise.reject(new Error('Fullscreen API unavailable'))
+    }
+
+    const exitDocumentFullscreen = () => {
+      const exit =
+        document.exitFullscreen?.bind(document) ||
+        document.webkitExitFullscreen?.bind(document) ||
+        document.msExitFullscreen?.bind(document)
+      if (!exit || !getFullscreenElement()) {
+        return Promise.resolve()
+      }
+      return exit().catch(() => undefined)
+    }
+
+    const exitImmersive = () => {
+      isImmersive.value = false
+      document.body.classList.remove('reader-immersive-open')
     }
 
     const exitFullscreenIfNeeded = async () => {
+      exitImmersive()
       const el = readerViewport.value
-      if (!el || document.fullscreenElement !== el) {
+      if (!el || getFullscreenElement() !== el) {
         return
       }
-      try {
-        await document.exitFullscreen()
-      } catch {
-        /* документ уже не в fullscreen при уходе со страницы */
-      }
+      await exitDocumentFullscreen()
+      syncFullscreenState()
+    }
+
+    const enterImmersive = () => {
+      isImmersive.value = true
+      document.body.classList.add('reader-immersive-open')
     }
 
     const toggleFullscreen = async () => {
-      const el = readerViewport.value
-      if (!el) {
+      if (isImmersive.value) {
+        await exitFullscreenIfNeeded()
         return
       }
-      try {
-        if (document.fullscreenElement === el) {
-          await document.exitFullscreen()
-        } else if (!document.fullscreenElement) {
-          await el.requestFullscreen()
-        }
-      } catch {
-        /* браузер мог отклонить полноэкранный режим */
+
+      const el = readerViewport.value
+      if (el && getFullscreenElement() === el) {
+        await exitFullscreenIfNeeded()
+        return
       }
-      syncFullscreenState()
+
+      await nextTick()
+
+      if (el) {
+        try {
+          await requestElementFullscreen(el)
+          syncFullscreenState()
+          if (getFullscreenElement() === el) {
+            return
+          }
+        } catch {
+          /* браузер отклонил — включаем CSS-режим */
+        }
+      }
+
+      enterImmersive()
     }
 
     const closeManga = async () => {
       await exitFullscreenIfNeeded()
-      syncFullscreenState()
       if (manga.value?.id) {
         await router.push(`/manga/${manga.value.id}`)
+      }
+    }
+
+    const onFullscreenChange = () => {
+      syncFullscreenState()
+      if (!getFullscreenElement() && !isImmersive.value) {
+        isNativeFullscreen.value = false
+      }
+    }
+
+    const onKeydown = (event) => {
+      if (event.key === 'Escape' && isFullscreen.value) {
+        exitFullscreenIfNeeded()
       }
     }
 
@@ -138,22 +214,36 @@ export default {
           mangaStore.mangaList = [...mangaStore.mangaList, item]
         }
       })
-      readerStore.loadChapter(Number(route.params.chapterId))
-      document.addEventListener('fullscreenchange', syncFullscreenState)
+      if (mangaStore.mangaList.length) {
+        readerStore.ensureProgressMigrated(mangaStore.mangaList)
+      }
+      readerStore.loadChapter(
+        Number(route.params.chapterId),
+        Number(route.params.mangaId)
+      )
+      document.addEventListener('fullscreenchange', onFullscreenChange)
+      document.addEventListener('webkitfullscreenchange', onFullscreenChange)
+      document.addEventListener('keydown', onKeydown)
     })
 
     onUnmounted(() => {
-      document.removeEventListener('fullscreenchange', syncFullscreenState)
+      document.removeEventListener('fullscreenchange', onFullscreenChange)
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange)
+      document.removeEventListener('keydown', onKeydown)
       exitFullscreenIfNeeded()
-      readerStore.saveProgress()
+      readerStore.saveProgress(Number(route.params.mangaId))
     })
 
     return {
       manga,
+      readAccess,
       chapter,
       page,
       readerStore,
+      readerRoot,
+      readerViewport,
       isFullscreen,
+      isImmersive,
       nextPage,
       prevPage,
       toggleFullscreen,
@@ -218,38 +308,49 @@ export default {
   color: #a73667;
   cursor: pointer;
   text-decoration: none;
-  line-height: 1.2;
+  line-height: 1;
 }
 
-.tool-btn:hover {
+.tool-btn:not(.tool-btn-close):hover {
   border-color: #e291b0;
   background: #fff;
 }
 
 .tool-btn-close {
-  background: linear-gradient(135deg, #ff82b4, #ec4899);
+  background: linear-gradient(135deg, #e91e7a, #c2185b);
   color: #fff;
-  border-color: #db2777;
+  border-color: #b0154f;
 }
 
 .tool-btn-close:hover {
-  filter: brightness(1.04);
-  border-color: #be185d;
+  background: linear-gradient(135deg, #f472b6, #db2777);
+  color: #fff;
+  border-color: #9d174d;
+  filter: brightness(1.06);
+}
+
+.reader.is-immersive {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 12px;
+  box-sizing: border-box;
+  background: #121016;
 }
 
 .reader-viewport {
   position: relative;
-  min-height: 200px;
-}
-
-.reader-viewport:fullscreen {
+  flex: 1;
+  min-height: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 100%;
-  height: 100%;
-  background: #121016;
-  box-sizing: border-box;
 }
 
 .fs-exit {
@@ -279,7 +380,8 @@ export default {
   min-height: 0;
 }
 
-.reader-viewport:fullscreen .reader-wrap {
+.reader.is-immersive .reader-wrap,
+.reader.is-immersive .reader-stage {
   align-items: center;
   height: 100%;
 }
@@ -291,7 +393,7 @@ export default {
   line-height: 0;
 }
 
-.reader-viewport:fullscreen .reader-stage {
+.reader.is-immersive .reader-stage {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -309,9 +411,9 @@ export default {
   -webkit-user-drag: none;
 }
 
-.reader-viewport:fullscreen .reader-page {
+.reader.is-immersive .reader-page {
   max-width: 100vw;
-  max-height: 100vh;
+  max-height: calc(100dvh - 24px);
   width: auto;
   height: auto;
   margin: 0 auto;
@@ -361,14 +463,76 @@ export default {
   .reader-toolbar {
     flex-direction: column;
     align-items: stretch;
+    position: sticky;
+    top: 52px;
+    z-index: 5;
+    background: rgba(255, 246, 251, 0.95);
+    margin: -4px -2px 8px;
+    padding: 10px 8px 12px;
+    border-radius: 10px;
+    border: 1px solid #efbfd3;
   }
 
   .reader-toolbar-actions {
     width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .tool-btn-close {
+    grid-column: 1 / -1;
   }
 
   .tool-btn {
     flex: 1 1 auto;
   }
+}
+</style>
+
+<style>
+/* Псевдо fullscreen не наследует scoped-атрибут — стили выносим отдельно */
+.reader-viewport:fullscreen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  background: #121016;
+  box-sizing: border-box;
+}
+
+.reader-viewport:fullscreen .reader-wrap,
+.reader-viewport:fullscreen .reader-stage {
+  align-items: center;
+  height: 100%;
+}
+
+.reader-viewport:fullscreen .reader-stage {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+  height: 100%;
+}
+
+.reader-viewport:fullscreen .reader-page {
+  max-width: 100vw;
+  max-height: 100vh;
+  width: auto;
+  height: auto;
+  margin: 0 auto;
+  object-fit: contain;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body.reader-immersive-open {
+  overflow: hidden;
+}
+
+body.reader-immersive-open .header,
+body.reader-immersive-open .footer {
+  display: none;
 }
 </style>

@@ -1,0 +1,10 @@
+/**
+ * Базовые UI-переменные. Финальное выравнивание — public/ui-align.css (последний в index.html).
+ */
+
+:root {
+  --ui-font: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --ui-control-height: 36px;
+  --ui-control-height-sm: 34px;
+  --ui-chip-height: 22px;
+}

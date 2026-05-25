@@ -30,7 +30,10 @@
         </RouterLink>
         <h4>{{ item.title }}</h4>
         <p>{{ getGenreNames(item.genres) }}</p>
-        <p class="meta">{{ item.rating?.toFixed(2) || '0.00' }} / 10</p>
+        <p class="meta">
+          <AgeRatingBadge :manga-id="item.id" :age-rating="item.ageRating" />
+          <span>{{ item.rating?.toFixed(2) || '0.00' }} / 10</span>
+        </p>
       </article>
     </div>
   </section>
@@ -41,9 +44,11 @@ import { computed, onMounted, ref } from 'vue'
 import { useMangaStore } from '../stores/manga'
 import { MangaApi } from '../services/mangaApi'
 import { getShikimoriPopularityRank } from '../data/shikimoriScores'
+import AgeRatingBadge from '../components/AgeRatingBadge.vue'
 
 export default {
   name: 'AllCatalogView',
+  components: { AgeRatingBadge },
   setup() {
     const mangaStore = useMangaStore()
     const selectedGenre = ref(null)
@@ -161,6 +166,10 @@ p {
 }
 .meta {
   margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
   font-weight: 700;
 }
 @media (max-width: 960px) {
@@ -172,9 +181,30 @@ p {
   .filters {
     grid-template-columns: 1fr;
   }
+
   .catalog-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
   }
+
+  .catalog-card h4 {
+    font-size: 11px;
+    line-height: 1.2;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .catalog-card p {
+    font-size: 9px;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
   .page-head {
     flex-direction: column;
     align-items: flex-start;

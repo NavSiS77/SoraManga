@@ -20,5 +20,11 @@ export const MangaApi = {
   },
   async addChapter(mangaId, payload) {
     return apiClient.post(DbService.addChapter(mangaId, payload))
+  },
+  async deleteChapter(mangaId, chapterId) {
+    return apiClient.delete(DbService.deleteChapter(mangaId, chapterId))
+  },
+  async deleteVolume(mangaId, volumeNumber) {
+    return apiClient.delete(DbService.deleteVolume(mangaId, volumeNumber))
   }
 }

@@ -15,6 +15,10 @@ class ApiClient {
   async post(data) {
     return Promise.resolve(data)
   }
+
+  async delete(data) {
+    return Promise.resolve(data)
+  }
 }
 
 export default new ApiClient()

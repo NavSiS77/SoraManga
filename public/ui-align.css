@@ -1,0 +1,180 @@
+/**
+ * Финальное выравнивание UI — подключается последним в index.html.
+ * Префикс #app перебивает scoped-стили компонентов.
+ */
+
+#app :is(
+  button:not(.edge),
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'],
+  select,
+  .navbar a,
+  a[class*='btn'],
+  button[class*='btn'],
+  [class*='-btn']:is(a, button):not(.edge),
+  .promo button
+) {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1 !important;
+  font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  font-kerning: normal !important;
+  letter-spacing: 0 !important;
+  word-spacing: 0 !important;
+  text-rendering: geometricPrecision;
+  -webkit-font-smoothing: antialiased;
+  vertical-align: middle;
+}
+
+#app .navbar a {
+  height: 36px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+#app .promo button {
+  height: 36px !important;
+  min-width: 124px !important;
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+#app :is(
+  .status,
+  .pill,
+  .place,
+  .panel-count,
+  .role-badge,
+  .auth-tab,
+  .tab
+) {
+  box-sizing: border-box !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  margin: 0 !important;
+  padding-top: 0 !important;
+  padding-bottom: 0 !important;
+  line-height: 1 !important;
+  font-family: Inter, 'Segoe UI', system-ui, -apple-system, sans-serif !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+}
+
+#app .status {
+  height: 22px !important;
+  min-width: 54px !important;
+  padding-left: 8px !important;
+  padding-right: 8px !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+}
+
+#app .pill {
+  height: 28px !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+}
+
+#app .carousel-arrow {
+  width: 40px !important;
+  height: 40px !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  line-height: 0 !important;
+}
+
+#app .carousel-arrow svg {
+  display: block !important;
+  width: 22px !important;
+  height: 22px !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+#app :is(
+  button:not(.edge),
+  .navbar a,
+  a[class*='btn'],
+  [class*='-btn']:is(a, button):not(.edge),
+  .promo button
+) > svg {
+  display: block !important;
+  margin: 0 !important;
+  flex-shrink: 0;
+}
+
+#app button:not(.edge):not(.carousel-arrow):not(.star-btn) {
+  min-height: 36px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+#app .btn,
+#app .tool-btn,
+#app .btn-submit {
+  min-height: 40px !important;
+}
+
+#app .fav-btn,
+#app .expand-btn,
+#app .catalog-more-btn,
+#app .tab,
+#app .auth-tab,
+#app .mini-btn,
+#app .continue-btn {
+  min-height: 36px !important;
+}
+
+#app .star-btn {
+  width: 36px !important;
+  height: 36px !important;
+  min-width: 36px !important;
+  min-height: 36px !important;
+  padding: 0 !important;
+}
+
+#app .fav-btn {
+  width: 100%;
+}
+
+#app button.volume-chevron {
+  width: auto !important;
+  height: auto !important;
+  min-width: 0 !important;
+  min-height: 0 !important;
+  padding: 2px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+#app button.volume-chevron svg {
+  width: 22px !important;
+  height: 22px !important;
+  display: block !important;
+}
+
+#app .ch-read-btn {
+  min-height: 32px !important;
+  padding: 0 8px !important;
+  background: transparent !important;
+  border: none !important;
+}
